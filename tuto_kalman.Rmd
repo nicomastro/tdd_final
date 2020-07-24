@@ -1,0 +1,125 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Detalles del experimento
+
+```{r}
+simple_kalman<-function(A=0.9, Q=1, R=1, obs)
+{
+  # Vector de observaciones y estados
+  N = length(obs)
+  ts = seq(-6,8, length.out = 100)
+  
+  # Estado inicial
+  us = c(NA,N)
+  sigmas = c(NA,N)
+  
+  # Asumimos una creencia inicial de N(0,sqrt(2)) como posicion de partida de la mano
+  us[1] = 0
+  sigmas[1] = sqrt(2)
+  
+  # Vector para guardar kalman gain
+  ws = c(NA,N-1)
+  
+  for(i in 2:N)
+  {
+  
+    # Plot prior
+    plot( ts, dnorm(ts,us[i-1], sigmas[i-1]), col = "red", type = 'l', main = paste("t = ", i),
+          xlab = "Time", ylab = "",ylim = c(0,0.6))
+    
+    legend("topleft", legend = c("Prior", "Likelihood", "Post Dynamics", "Posterior"), 
+           col = c("red", "blue", "red", "purple"), lty = c('solid', 'solid', 'dashed', 'solid') , cex = 0.8)
+    
+    # Predict (Dynamics)
+    sigma_dynamic = sqrt(Q**2 + A**2 * sigmas[i-1]**2)
+    u_dynamic = A*us[i-1] 
+    
+    # Plot prior post dynamics y likelihood dada la observacion
+    lines(ts, dnorm(ts,obs[i],R) , col = "blue", lty = "solid")
+    lines(ts, dnorm(ts,u_dynamic, sigma_dynamic), col = "red",  lty = "dashed")
+    
+    # Kalman gain
+    W = sigma_dynamic**2 / (R**2 + sigma_dynamic**2)
+    ws[i-1] = W
+    
+    # Update
+    us[i] =(u_dynamic)*(1-W) + W*obs[i]
+    sigmas[i] = 1 / sqrt(( (1/(R**2)) + (1/(sigma_dynamic**2))  ) )
+    
+    # Plot posterior
+    lines(ts, dnorm(ts,us[i], sigmas[i]), col = "purple",  lty = "solid")
+    
+  }
+  
+  return(list("us"= us, "ws"= ws, "sigma"= sigmas))
+
+}
+```
+
+Ahora, a partir de una serie de mediciones, realizamos el filtering tomando los valores por defecto del modelo.
+
+```{r}
+
+o = c(5,4,6,4)
+ts = seq(0,3,length.out = N)
+kalman = simple_kalman(obs = o)
+
+```
+
+En los gráficos se puede observar la evolución de las distintas distribuciones a lo largo del tiempo.
+Para el caso de t = 2,  se ve que la primera medición resulta lo suficiente informativa para "acercar" nuestra creencia incial hacia ella. Conforme pasa el tiempo, las correcciones a partir de las mediciones se vuelven menos significativas y el prior de nuestras estimaciones, cobra mayor relevancia.
+
+
+Si ploteamos los valores de K durante el experimento, notaríamos que el valor más alto se da en t = 2. Intuitivamente, muestra que inicialmente el proceso pesa más a las mediciones que a nuestras estimaciones basadas en las Dynamics asumidas. Luego, este valor comienza a caer a medida que las estimaciones se van refinando en los siguientes estados.
+
+```{r}
+# Plot Kalman gain 
+plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K")
+
+```
+ 
+Veamos ahora las MAP estimaciones de las posiciones obtenidas junto con las mediciones
+```{r}
+
+plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(us),max(obs))), main = "Kalman Filtering", 
+     xlab = "Time", ylab= "X position")
+
+lines(ts, o, col = "green", type='p')
+```
+
+Es interesante notar el efecto que tiene considerar valores extremos para el coeficiente A de las dynamics.
+Por ejemplo, si tomamos un A grande, observaríamos que nuestras estimaciones van a "pegarse" a las mediciones obtenidas en cada tiempo. Esto ocurre porque ahora tanto la varianza como la media de la distribución del prior "post dynamics" es demasiado chata, siendo entonces poco informativa. También se refleja esto en un W que tiende a 1, que tedrá por consecuencia anular al prior y solo considerar para la estimación a posteriori el likelihood.
+
+```{r}
+kalman = simple_kalman(A = 200, obs = o)
+
+
+# Plot Kalman gain 
+plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K")
+
+# Plot estimación
+plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(us),max(obs))), main = "Kalman Filtering", 
+     xlab = "Time", ylab= "X position")
+
+lines(ts, o, col = "green", type='p')
+
+```
+En caso de A tendiendo a 0, vemos que el prio post dynamics quedaría siempre centrado en 0 y con varianza constante. De alguna forma, terminaría invalidando en cada estado al prior (likelihood anterior) y centrando las creencias antes de la estimación siempre al rededor del 0, lo cual tiene sentido porque siempre esperamos que el cambio de posición se abrupto y cercano al 0  (A*X_t  con A-> 0).
+
+
+```{r}
+kalman = simple_kalman(A = 0.000002, obs = o)
+
+
+# Plot Kalman gain 
+plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K")
+
+# Plot estimación
+plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(us),max(obs))), main = "Kalman Filtering", 
+     xlab = "Time", ylab= "X position")
+
+lines(ts, o, col = "green", type='p')
+```
+
