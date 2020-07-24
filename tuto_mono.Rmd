@@ -18,64 +18,51 @@ df = data.frame(
   "cursorpos2" = mydata[[5]]
 )
 
-plot(df$time[df$time<19], df$handpos1[df$time<19], col="red", type = 'l',main = "HandPos x", xlab = "Time")
-
-
-ts = df$time[df$time<19]
-tss = seq(-6,20, length.out = 100)
-obs = df$handpos1[df$time<19]
-N = length(obs)
 
 # Parametros dynamics
-A  = 0.09
+A  = 1
 
-# Process noise
+# Process noise (confianza de que tenemos un buen modelo)
 Q = 0.001
 
 # Observation noise
-R = 0.001
+R = 0.006
+
+ts = df$time[df$time<19]
+truth = df$handpos1[df$time<19]
+N = length(truth)
+obs = truth +  rnorm(N, mean = 0, sd = R)
 
 # Estado inicial
 us = c(NA,N)
 sigmas = c(NA,N)
 us[1] = 0
-sigmas[1] = sqrt(R)
-kalman_gain = c(NA,N-1)
+sigmas[1] = sqrt(Q)
 
 for(i in 2:N)
 {
 
-  # Plot prior
-  #plot(tss, dnorm(tss,us[i-1], sigmas[i-1]), col = "red", type = 'l', main = paste("t = ", i), xlab = "Time", ylim = c(0,0.6))
-  #      legend("topleft", legend = c("Prior", "Likelihood", "Post Dynamics", "Posterior"), 
-  #       col = c("red", "blue", "red", "purple"), lty = c('solid', 'solid', 'dashed', 'solid') , cex = 0.8)
-  
   # Predict (convolucion)
   sigma_dynamic = sqrt(Q**2 + A**2 * sigmas[i-1]**2)
   u_dynamic = A*us[i-1] 
-  
-  # Plot dynamics y likelihood
-  lines(tss, dnorm(tss,obs[i],R) , col = "blue", lty = "solid")
-  lines(tss, dnorm(tss,u_dynamic, sigma_dynamic), col = "red",  lty = "dashed")
-  
+
   # Update
   W = sigma_dynamic**2 / (R**2 + sigma_dynamic**2)
-  kalman_gain[i-1] = W
-  
+
   us[i] =(u_dynamic)*(1-W) + W*obs[i]
   
   sigmas[i] = 1 / sqrt(( (1/(R**2)) + (1/(sigma_dynamic**2))  ) )
   
   # Plot posterior
-  lines(tss, dnorm(tss,us[i], sigmas[i]), col = "purple",  lty = "solid")
+  #lines(tss, dnorm(tss,us[i], sigmas[i]), col = "purple",  lty = "solid")
   
 }
 
-print(us)
-print(sigmas)
+
 plot(ts, us, col = "red", type='l')
-lines(ts, obs, col = "green", type = 'b')
+lines(ts, obs, col = "green", type = 'p')
+lines(ts, df$handpos1[df$time<19], col="blue", type = 'l')
+print(paste("ECM estimate", mean((us[2:N]-truth[2:N])**2)))
+print(paste("Measure estimate only", mean((obs[2:N]-truth[2:N])**2)))
 
-
-plot(ts[2:N],kalman_gain, type='l')
 ```

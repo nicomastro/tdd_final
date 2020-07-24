@@ -22,6 +22,8 @@ simple_kalman<-function(A=0.9, Q=1, R=1, obs)
   # Vector para guardar kalman gain
   ws = c(NA,N-1)
   
+  truth = c(NA,N)
+  truth[1] = 5
   for(i in 2:N)
   {
   
@@ -35,6 +37,8 @@ simple_kalman<-function(A=0.9, Q=1, R=1, obs)
     # Predict (Dynamics)
     sigma_dynamic = sqrt(Q**2 + A**2 * sigmas[i-1]**2)
     u_dynamic = A*us[i-1] 
+    
+    truth[i] = A*truth[i-1] + rnorm(n =1, mean = 0, sd = R)
     
     # Plot prior post dynamics y likelihood dada la observacion
     lines(ts, dnorm(ts,obs[i],R) , col = "blue", lty = "solid")
@@ -53,7 +57,7 @@ simple_kalman<-function(A=0.9, Q=1, R=1, obs)
     
   }
   
-  return(list("us"= us, "ws"= ws, "sigma"= sigmas))
+  return(list("us"= us, "ws"= ws, "sigma"= sigmas, "truth" = truth))
 
 }
 ```
@@ -61,10 +65,10 @@ simple_kalman<-function(A=0.9, Q=1, R=1, obs)
 Ahora, a partir de una serie de mediciones, realizamos el filtering tomando los valores por defecto del modelo.
 
 ```{r}
-
+N = 4
 o = c(5,4,6,4)
 ts = seq(0,3,length.out = N)
-kalman = simple_kalman(obs = o)
+kalman = simple_kalman(obs = o, Q = 0.00005)
 
 ```
 
@@ -83,10 +87,15 @@ plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K
 Veamos ahora las MAP estimaciones de las posiciones obtenidas junto con las mediciones
 ```{r}
 
-plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(us),max(obs))), main = "Kalman Filtering", 
+plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(kalman$us),max(o))), main = "Kalman Filtering", 
      xlab = "Time", ylab= "X position")
 
+
 lines(ts, o, col = "green", type='p')
+lines(ts, kalman$truth, col = "blue", type = "l")
+
+print(paste("ECM estimate", mean((kalman$us[2:N]-kalman$truth[2:N])**2)))
+print(paste("Measure estimate only", mean((o[2:N]-kalman$truth[2:N])**2)))
 ```
 
 Es interesante notar el efecto que tiene considerar valores extremos para el coeficiente A de las dynamics.
