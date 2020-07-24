@@ -1,1 +1,4 @@
-# Trabajo final Toma de Decisiones
+# Toma de Decisiones
+
+## Trabajo final: Kalman filters y Hidden Markov models
+
