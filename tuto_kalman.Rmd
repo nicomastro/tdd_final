@@ -147,8 +147,8 @@ lines(ts, o, col = "green", type='p')
 
 Anteriormente, vimos que la estimaciones iniciales lograron corregir el error de las creencias inciales, de alguna manera adaptándose rápidamente a la información que llegaban de las mediciones. Veamos que ocurre si en el experimento la mano comenzara a tender hacia valores más cercanos al rededor del cero. 
 Asumiendo que efecticamente, el modelo de las dinámicas de las manos es adecuado, calculamos una realización de la trayectoria agregando el ruido propio del proceso. Este será nuestro ground truth.
-Para modelar las mediciones, le agregraremos ruido, gaussiano centrado en 0 y con desvió standar 2, al valor del ground truth en cada instancia.
-Finalmente, obtenemos una medida del error calculando el RMSE y
+Para modelar las mediciones, le agregraremos ruido, gaussiano centrado en 0 y con desvió standar $R = 2$, al valor del ground truth en cada instancia.
+Finalmente, obtenemos una medida del error calculando el RMSE. Notar que el error de predicción que obtendríamos en caso de basarnos en las mediciones va a tender hacia $R$. Por otro lado, como esperabamos, notamos una mejoría en la estimación del RMSE utilizando Kalman.
 ```{r}
 
 o_ext = c(o,rep(NA,100))
