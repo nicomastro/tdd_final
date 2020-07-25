@@ -1,15 +1,31 @@
 ---
-title: "R Notebook"
+title: "Un ejemplo sencillo para Kalman filtering"
 output: html_notebook
 ---
-Detalles del experimento
+En esta notebook, exploraremos un ejemplo basado en un ejemplo del capitulo 7 del libro de Wei Ji Ma.
+
+El experimento a modelar es el siguiente: Tenemos que tratar de mantener extendida nuestra mano quieta en frente de nosotros, con los ojos cerrados. El objetivo es estimar su posición $x$, que para simplificar solo considerará la componente horizontal, cuyo origen será justo delante de nuestros ojos.
+
+Notemos que, al tener los ojos cerrados, estamos tratando de simular mediciones mas ruidosas, ya que el feedback es propioceptivo y no visual.
+
+Por otro lado, nuestro entendimiento de las dinamycs del modelo es que la mano tenderá hacia el centro. Idealmente, para cada estado, se podría incorporar velocidad y posición pero, por simplicidad, asumiremos velocidad constante. Hay que tener en cuenta, también, que, aún si el modelo de las Dynamics fuese el que describa la realidad, existirá un error intrínseca al proceso, $\eta$ asociado a factores externos. Finalmente, el modelo simplificado que usamos es:
+$$ x_{t+1} = A{x_t} + \eta $$
+Tomando $A < 1$, se puede ver que la posición tenderá a 0, tal como se indicó antes.
+
+En resumen, construiremos un algoritmo que obtenga una estimación mejor de la posición a partir de la información ruidosa de las mediciones y del proceso. Entendemos por mejor, en este caso, a aplicar una actulización Bayesiana utilizando **Kalman filtering**.
+
+A continuación construiremos una función que aplique una versión simplificada de Kalman filtering. Además del parámetro $A$ y el vector de mediciones en cada instante de tiempo, recibe la desviación standar del proceso ($Q$) y de las mediciones ($R$).
+
+Intuitivamente, si las mediciones provienen de una fuente con buena precisión, tendría sentido acomodar $R$ a valores más chicos de manera que, como se verá luego, el Kalman Gain pondere más a las observaciones.
+Análogamente, si tenemos información suficiente para pensar que el modelo de las Dynamics está lo suficientemente cerca de lo que ocurre en la realidad, podríamos acomodar $Q$ a valores más chicos para ponderar menos a la información proveniente de las observaciones. 
 
 ```{r}
-simple_kalman<-function(A=0.9, Q=1, R=1, obs)
+
+simple_kalman<-function(A = 0.9, Q = 1, R = 1, obs, plot = TRUE )
 {
   # Vector de observaciones y estados
   N = length(obs)
-  ts = seq(-6,8, length.out = 100)
+  ts = seq(-6,10, length.out = 100)
   
   # Estado inicial
   us = c(NA,N)
@@ -24,111 +40,140 @@ simple_kalman<-function(A=0.9, Q=1, R=1, obs)
   
   truth = c(NA,N)
   truth[1] = 5
+  
   for(i in 2:N)
   {
   
-    # Plot prior
-    plot( ts, dnorm(ts,us[i-1], sigmas[i-1]), col = "red", type = 'l', main = paste("t = ", i),
-          xlab = "Time", ylab = "",ylim = c(0,0.6))
-    
-    legend("topleft", legend = c("Prior", "Likelihood", "Post Dynamics", "Posterior"), 
-           col = c("red", "blue", "red", "purple"), lty = c('solid', 'solid', 'dashed', 'solid') , cex = 0.8)
-    
-    # Predict (Dynamics)
-    sigma_dynamic = sqrt(Q**2 + A**2 * sigmas[i-1]**2)
-    u_dynamic = A*us[i-1] 
-    
-    truth[i] = A*truth[i-1] + rnorm(n =1, mean = 0, sd = R)
-    
-    # Plot prior post dynamics y likelihood dada la observacion
-    lines(ts, dnorm(ts,obs[i],R) , col = "blue", lty = "solid")
-    lines(ts, dnorm(ts,u_dynamic, sigma_dynamic), col = "red",  lty = "dashed")
-    
-    # Kalman gain
-    W = sigma_dynamic**2 / (R**2 + sigma_dynamic**2)
-    ws[i-1] = W
-    
-    # Update
-    us[i] =(u_dynamic)*(1-W) + W*obs[i]
-    sigmas[i] = 1 / sqrt(( (1/(R**2)) + (1/(sigma_dynamic**2))  ) )
-    
-    # Plot posterior
-    lines(ts, dnorm(ts,us[i], sigmas[i]), col = "purple",  lty = "solid")
-    
+      # Predict (Dynamics)
+      sigma_dynamic = sqrt(Q**2 + A**2 * sigmas[i-1]**2)
+      u_dynamic = A*us[i-1] 
+      
+      truth[i] = A*truth[i-1] + rnorm(n = 1 , mean = 0, sd = Q)
+      
+       # Kalman gain
+      W = sigma_dynamic**2 / (R**2 + sigma_dynamic**2)
+      ws[i-1] = W
+      
+      # ESTA PARTE LA AGREGO PARA PROBAR ALGO EN LA ULTIMA CELDA
+      if(N > 5)
+        obs[i] = truth[i] + rnorm(1,0,R)
+      
+      # Update
+      us[i] =(u_dynamic)*(1-W) + W*obs[i]
+      sigmas[i] = 1 / sqrt(( (1/(R**2)) + (1/(sigma_dynamic**2))  ) )
+      
+      if(plot)
+      {
+          # Plot prior
+          plot( ts, dnorm(ts,us[i-1], sigmas[i-1]), col = "red", type = 'l', main = paste("t = ", i),
+                xlab = "Time", ylab = "",ylim = c(0,0.6))
+          legend("topleft", legend = c("Prior", "Likelihood", "Post Dynamics", "Posterior"), 
+                 col = c("red", "blue", "red", "purple"), lty = c('solid', 'solid', 'dashed', 'solid') , cex = 0.8)
+          
+          # Plot prior post dynamics y likelihood dada la observacion
+          lines(ts, dnorm(ts,obs[i],R) , col = "blue", lty = "solid")
+          lines(ts, dnorm(ts,u_dynamic, sigma_dynamic), col = "red",  lty = "dashed")
+          
+          # Plot posterior
+          lines(ts, dnorm(ts,us[i], sigmas[i]), col = "purple",  lty = "solid")
+      }
   }
   
-  return(list("us"= us, "ws"= ws, "sigma"= sigmas, "truth" = truth))
+  return(list("us"= us, "ws"= ws, "sigma"= sigmas, "truth" = truth, "obs" = obs))
 
 }
 ```
 
 Ahora, a partir de una serie de mediciones, realizamos el filtering tomando los valores por defecto del modelo.
+Vamos a comenzar con una creencia incial de la posición de nuestra mano en $x = 0$ en $t = 1$, aunque en realidad, viendo el vector de observaciones que definiremos, la misma se encuentra en $x = 5$
 
 ```{r}
 N = 4
 o = c(5,4,6,4)
-ts = seq(0,3,length.out = N)
-kalman = simple_kalman(obs = o, Q = 0.00005)
-
+kalman = simple_kalman(obs = o)
 ```
 
 En los gráficos se puede observar la evolución de las distintas distribuciones a lo largo del tiempo.
-Para el caso de t = 2,  se ve que la primera medición resulta lo suficiente informativa para "acercar" nuestra creencia incial hacia ella. Conforme pasa el tiempo, las correcciones a partir de las mediciones se vuelven menos significativas y el prior de nuestras estimaciones, cobra mayor relevancia.
+Para el caso de $t = 2$,  se ve que la primera medición resulta lo suficiente informativa para "acercar" nuestra creencia incial, erronea, hacia ella. Se esperaría que, conforme pasa el tiempo, las correcciones a partir de las mediciones se vuelven menos significativas y el prior de nuestras estimaciones (vinculado por el proceso de las Dynamics), cobre mayor relevancia.
 
+### Analizando el Kalman Gain 
 
-Si ploteamos los valores de K durante el experimento, notaríamos que el valor más alto se da en t = 2. Intuitivamente, muestra que inicialmente el proceso pesa más a las mediciones que a nuestras estimaciones basadas en las Dynamics asumidas. Luego, este valor comienza a caer a medida que las estimaciones se van refinando en los siguientes estados.
+Si ploteamos los valores de Kalman Gain ($K$) durante el experimento, notaríamos que el valor más alto se da en $t = 2$. 
+Intuitivamente, muestra que inicialmente el algoritmo pesa más a las mediciones que a nuestras estimaciones basadas en las Dynamics asumidas. Luego, este valor comienza a caer a medida que las estimaciones se van refinando en los siguientes estados.
 
 ```{r}
+
 # Plot Kalman gain 
+ts = seq(1,4,length.out = N)
 plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K")
 
-```
- 
-Veamos ahora las MAP estimaciones de las posiciones obtenidas junto con las mediciones
-```{r}
-
-plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(kalman$us),max(o))), main = "Kalman Filtering", 
-     xlab = "Time", ylab= "X position")
-
-
-lines(ts, o, col = "green", type='p')
-lines(ts, kalman$truth, col = "blue", type = "l")
-
-print(paste("ECM estimate", mean((kalman$us[2:N]-kalman$truth[2:N])**2)))
-print(paste("Measure estimate only", mean((o[2:N]-kalman$truth[2:N])**2)))
 ```
 
 Es interesante notar el efecto que tiene considerar valores extremos para el coeficiente A de las dynamics.
-Por ejemplo, si tomamos un A grande, observaríamos que nuestras estimaciones van a "pegarse" a las mediciones obtenidas en cada tiempo. Esto ocurre porque ahora tanto la varianza como la media de la distribución del prior "post dynamics" es demasiado chata, siendo entonces poco informativa. También se refleja esto en un W que tiende a 1, que tedrá por consecuencia anular al prior y solo considerar para la estimación a posteriori el likelihood.
-
+Por ejemplo, si tomamos un A grande, observaríamos que nuestras estimaciones (MAP) van a "pegarse" a las mediciones obtenidas en cada tiempo. Esto ocurre porque ahora tanto la varianza como la media de la distribución del prior "post dynamics" es demasiado chata, siendo entonces poco informativa. También se refleja esto en un $W$ que tiende a 1, que tedrá por consecuencia anular al prior y solo considerar para la estimación a posteriori el likelihood.
 ```{r}
-kalman = simple_kalman(A = 200, obs = o)
-
+kalman = simple_kalman(A = 20, obs = o)
 
 # Plot Kalman gain 
 plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K")
 
 # Plot estimación
-plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(us),max(obs))), main = "Kalman Filtering", 
+plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(kalman$us),max(o))), main = "Kalman Filtering", 
      xlab = "Time", ylab= "X position")
-
+legend("topleft", legend = c("Kalman", "Observaciones"), 
+                 col = c("red", "green"), lty = c('solid', 'solid'), cex = 0.8)
 lines(ts, o, col = "green", type='p')
 
-```
-En caso de A tendiendo a 0, vemos que el prio post dynamics quedaría siempre centrado en 0 y con varianza constante. De alguna forma, terminaría invalidando en cada estado al prior (likelihood anterior) y centrando las creencias antes de la estimación siempre al rededor del 0, lo cual tiene sentido porque siempre esperamos que el cambio de posición se abrupto y cercano al 0  (A*X_t  con A-> 0).
 
+```
+
+
+En caso de A tendiendo a 0, vemos que el prior post dynamics quedaría siempre centrado en 0 y con varianza constante. De alguna forma, terminaría invalidando en cada estado al prior (likelihood anterior) y centrando las creencias antes de la estimación siempre al rededor del 0, lo cual tiene sentido porque siempre esperamos que el cambio de posición se abrupto y cercano al 0  ($AX_{t} con A\rightarrow 0 $).
 
 ```{r}
-kalman = simple_kalman(A = 0.000002, obs = o)
-
+kalman = simple_kalman(A = 0.1, obs = o)
 
 # Plot Kalman gain 
 plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K")
 
 # Plot estimación
-plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(us),max(obs))), main = "Kalman Filtering", 
+plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(kalman$us),max(o))), main = "Kalman Filtering", 
      xlab = "Time", ylab= "X position")
-
+legend("topleft", legend = c("Kalman", "Observaciones"), 
+                 col = c("red", "green"), lty = c('solid', 'solid'), cex = 0.8)
 lines(ts, o, col = "green", type='p')
+
 ```
+
+Anteriormente, vimos que la estimaciones iniciales lograron corregir el error de las creencias inciales, de alguna manera adaptándose rápidamente a la información que llegaban de las mediciones. Veamos que ocurre si en el experimento la mano comenzara a tender hacia valores más cercanos al rededor del cero. 
+Asumiendo que efecticamente, el modelo de las dinámicas de las manos es adecuado, calculamos una realización de la trayectoria agregando el ruido propio del proceso. Este será nuestro ground truth.
+Para modelar las mediciones, le agregraremos ruido, gaussiano centrado en 0 y con desvió standar 2, al valor del ground truth en cada instancia.
+Finalmente, obtenemos una medida del error calculando el RMSE y
+```{r}
+
+o_ext = c(o,rep(NA,100))
+N2 = length(o_ext)
+ts = seq(1,N2)
+
+kalman = simple_kalman(0.9, Q = 1, R = 2, obs = o_ext, plot = FALSE)
+o_ext = kalman$obs
+ymin = min(kalman$us, o_ext, kalman$truth)
+ymax = max(kalman$us, o_ext, kalman$truth)
+
+plot(ts, kalman$us, col = "red", type = 'l', ylim = c(ymin, ymax), main = "Kalman Filtering", xlab = "Time", ylab= "X position")
+legend("topleft", legend = c("Kalman", "Observaciones", "Ground Truth"), 
+                 col = c("red", "green", "blue"), lty = c('solid', 'solid', 'solid'), cex = 0.8)
+lines(ts, o_ext, col = "green", type='p')
+lines(ts, kalman$truth, col = "blue", type = "l")
+
+
+print(paste("RMSE estimate", sqrt(mean((kalman$us[2:N2]-kalman$truth[2:N2])**2))))
+print(paste("RMSE estimate only", sqrt(mean((o_ext[2:N2]-kalman$truth[2:N2])**2))))
+
+
+# Plot Kalman gain 
+plot(ts[2:N2],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K")
+
+```
+
 
