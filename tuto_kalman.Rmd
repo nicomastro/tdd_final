@@ -54,7 +54,7 @@ simple_kalman<-function(A = 0.9, Q = 1, R = 1, obs, plot = TRUE )
       W = sigma_dynamic**2 / (R**2 + sigma_dynamic**2)
       ws[i-1] = W
       
-      # ESTA PARTE LA AGREGO PARA PROBAR ALGO EN LA ULTIMA CELDA
+      # Esta parte serviará para el final, cuando se quiera modelar el ground truth
       if(N > 5)
         obs[i] = truth[i] + rnorm(1,0,R)
       
@@ -68,7 +68,8 @@ simple_kalman<-function(A = 0.9, Q = 1, R = 1, obs, plot = TRUE )
           plot( ts, dnorm(ts,us[i-1], sigmas[i-1]), col = "red", type = 'l', main = paste("t = ", i),
                 xlab = "Time", ylab = "",ylim = c(0,0.6))
           legend("topleft", legend = c("Prior", "Likelihood", "Post Dynamics", "Posterior"), 
-                 col = c("red", "blue", "red", "purple"), lty = c('solid', 'solid', 'dashed', 'solid') , cex = 0.8)
+                 col = c("red", "blue", "red", "purple"), lty = c('solid', 'solid', 'dashed', 'solid') ,
+                 cex = 0.8)
           
           # Plot prior post dynamics y likelihood dada la observacion
           lines(ts, dnorm(ts,obs[i],R) , col = "blue", lty = "solid")
@@ -110,7 +111,9 @@ plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K
 ```
 
 Es interesante notar el efecto que tiene considerar valores extremos para el coeficiente A de las dynamics.
+
 Por ejemplo, si tomamos un A grande, observaríamos que nuestras estimaciones (MAP) van a "pegarse" a las mediciones obtenidas en cada tiempo. Esto ocurre porque ahora tanto la varianza como la media de la distribución del prior "post dynamics" es demasiado chata, siendo entonces poco informativa. También se refleja esto en un $W$ que tiende a 1, que tedrá por consecuencia anular al prior y solo considerar para la estimación a posteriori el likelihood.
+
 Notar que el hecho de que el prior y las observaciones aún sigan "cerca" con este valor de A es accidental, tiene que ver con el hecho de que las mediciones están considerablemente "juntas".
 ```{r}
 kalman = simple_kalman(A = 20, obs = o)
@@ -124,12 +127,8 @@ plot(ts, kalman$us, col = "red", type = 'l', ylim = c(0,max(max(kalman$us),max(o
 legend("topleft", legend = c("Kalman", "Observaciones"), 
                  col = c("red", "green"), lty = c('solid', 'solid'), cex = 0.8)
 lines(ts, o, col = "green", type='p')
-
-
 ```
-
-
-En caso de A tendiendo a 0, vemos que el prior post dynamics quedaría siempre centrado en 0 y con varianza constante. De alguna forma, terminaría invalidando en cada estado al prior (likelihood anterior) y centrando las creencias antes de la estimación siempre al rededor del 0, lo cual tiene sentido porque siempre esperamos que el cambio de posición se abrupto y cercano al 0  ($AX_{t} con A\rightarrow 0 $).
+En caso de A tendiendo a 0, vemos que el prior post dynamics quedaría siempre centrado en 0 y con varianza constante. De alguna forma, terminaría invalidando en cada estado al prior (likelihood anterior) y centrando las creencias antes de la estimación siempre al rededor del 0, lo cual tiene sentido porque siempre esperamos que el cambio de posición sea abrupto y cercano al 0 ($Ax_{t}$ con $A \rightarrow 0$).
 
 ```{r}
 kalman = simple_kalman(A = 0.1, obs = o)
@@ -147,8 +146,10 @@ lines(ts, o, col = "green", type='p')
 ```
 
 Anteriormente, vimos que la estimaciones iniciales lograron corregir el error de las creencias inciales, de alguna manera adaptándose rápidamente a la información que llegaban de las mediciones. Veamos que ocurre si en el experimento la mano comenzara a tender hacia valores más cercanos al rededor del cero. 
+
 Asumiendo que efecticamente, el modelo de las dinámicas de las manos es adecuado, calculamos una realización de la trayectoria agregando el ruido propio del proceso. Este será nuestro ground truth.
 Para modelar las mediciones, le agregraremos ruido, gaussiano centrado en 0 y con desvió standar $R = 2$, al valor del ground truth en cada instancia.
+
 Finalmente, obtenemos una medida del error calculando el RMSE. Notar que el error de predicción que obtendríamos en caso de basarnos en las mediciones va a tender hacia $R$. Por otro lado, como esperabamos, notamos una mejoría en la estimación del RMSE utilizando Kalman.
 ```{r}
 
@@ -169,7 +170,7 @@ lines(ts, kalman$truth, col = "blue", type = "l")
 
 
 print(paste("RMSE estimate", sqrt(mean((kalman$us[2:N2]-kalman$truth[2:N2])**2))))
-print(paste("RMSE estimate only", sqrt(mean((o_ext[2:N2]-kalman$truth[2:N2])**2))))
+print(paste("RMSE measurements only", sqrt(mean((o_ext[2:N2]-kalman$truth[2:N2])**2))))
 
 
 # Plot Kalman gain 
@@ -178,5 +179,6 @@ plot(ts[2:N2],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "
 ```
 
 Como última parte para este tutorial, dejamos la posibilidad de experimentar con el dataset utilizado en el paper **Statistical assessment of the stability of neural movement representations, H. Stevenson1 et al.** en donde se trackea el movimiento de la mano de algunos monos en varios trial de experimentos que consisten en alcanzar objetos. Lo interesante es que al comienzo de cada trial, la mano debería estar "quieta".
+
 En caso de querer probar distintas hipótesis de este modelo con esos datos, en el repositorio se encuentran subido el experimento para un trial de un mono particular en /data. Es posible encontrar el resto del dataset en format .mat en http://crcns.org/data-sets/movements/dream
 
