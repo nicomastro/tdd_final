@@ -1,4 +1,4 @@
-# Toma de Decisiones
+# Toma de Decisiones 2020 (1C virtual)
 
 ## Trabajo final: Kalman filters y Hidden Markov models
 
