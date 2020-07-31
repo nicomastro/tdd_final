@@ -111,6 +111,7 @@ plot(ts[2:N],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "K
 
 Es interesante notar el efecto que tiene considerar valores extremos para el coeficiente A de las dynamics.
 Por ejemplo, si tomamos un A grande, observaríamos que nuestras estimaciones (MAP) van a "pegarse" a las mediciones obtenidas en cada tiempo. Esto ocurre porque ahora tanto la varianza como la media de la distribución del prior "post dynamics" es demasiado chata, siendo entonces poco informativa. También se refleja esto en un $W$ que tiende a 1, que tedrá por consecuencia anular al prior y solo considerar para la estimación a posteriori el likelihood.
+Notar que el hecho de que el prior y las observaciones aún sigan "cerca" con este valor de A es accidental, tiene que ver con el hecho de que las mediciones están considerablemente "juntas".
 ```{r}
 kalman = simple_kalman(A = 20, obs = o)
 
@@ -176,4 +177,6 @@ plot(ts[2:N2],kalman$ws, type='l', main = "Kalman Gain", xlab = "Time", ylab = "
 
 ```
 
+Como última parte para este tutorial, dejamos la posibilidad de experimentar con el dataset utilizado en el paper **Statistical assessment of the stability of neural movement representations, H. Stevenson1 et al.** en donde se trackea el movimiento de la mano de algunos monos en varios trial de experimentos que consisten en alcanzar objetos. Lo interesante es que al comienzo de cada trial, la mano debería estar "quieta".
+En caso de querer probar distintas hipótesis de este modelo con esos datos, en el repositorio se encuentran subido el experimento para un trial de un mono particular en /data. Es posible encontrar el resto del dataset en format .mat en http://crcns.org/data-sets/movements/dream
 
